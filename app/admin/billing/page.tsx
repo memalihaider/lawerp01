@@ -27,8 +27,9 @@ export default function BillingPage() {
 
   function startTimer() {
     if (!timer.matterId) { toast("error", "Select a matter"); return; }
-    setTimer((t) => ({ ...t, running: true, start: Date.now() }));
-    const iv = setInterval(() => setElapsed(Math.floor((Date.now() - Date.now()) / 1000)), 1000);
+    const startTime = Date.now();
+    setTimer((t) => ({ ...t, running: true, start: startTime }));
+    const iv = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
     // Store interval to clear later
     (window as unknown as Record<string, unknown>).__timerIv = iv;
   }
@@ -104,7 +105,14 @@ export default function BillingPage() {
 
       {/* Timer */}
       <div className="bg-white rounded-xl border border-border p-4">
-        <h3 className="font-semibold text-foreground mb-3">Timer</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-foreground">Timer</h3>
+          {timer.running && (
+            <span className="text-2xl font-mono font-bold text-primary tabular-nums">
+              {String(Math.floor(elapsed / 3600)).padStart(2, "0")}:{String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0")}:{String(elapsed % 60).padStart(2, "0")}
+            </span>
+          )}
+        </div>
         <div className="flex flex-col sm:flex-row gap-3 items-end">
           <div className="flex-1">
             <select value={timer.matterId} onChange={(e) => setTimer((t) => ({ ...t, matterId: e.target.value }))}

@@ -153,3 +153,52 @@ export async function batchUpdate(
 
 export { collection, query, where, orderBy, limit, serverTimestamp, Timestamp };
 export type { WhereFilterOp };
+
+// --------------- Create user with Auth account ---------------
+// Uses Firebase REST API so it doesn't sign out the current admin session
+const FIREBASE_API_KEY = "AIzaSyDYKT5wXPLlQvhFyrFqcr48ru-x0tCLCOo";
+const FIREBASE_PROJECT_ID = "lawfirmerp-8190c";
+
+export async function createUserWithAuth(
+  email: string,
+  password: string,
+  profileData: Record<string, unknown>
+): Promise<string> {
+  // 1. Create the Auth account via REST (won't affect current session)
+  const authRes = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, displayName: profileData.displayName, returnSecureToken: true }),
+    }
+  );
+  const authData = await authRes.json();
+  if (authData.error) throw new Error(authData.error.message);
+
+  const uid = authData.localId;
+  const idToken = authData.idToken;
+
+  // 2. Write Firestore profile doc keyed by UID via REST
+  const firestoreBody = {
+    fields: Object.fromEntries(
+      Object.entries({ ...profileData, uid, email, createdAt: new Date().toISOString() }).map(([k, v]) => [
+        k,
+        typeof v === "boolean" ? { booleanValue: v } :
+        typeof v === "number" ? { integerValue: String(v) } :
+        { stringValue: String(v ?? "") },
+      ])
+    ),
+  };
+
+  await fetch(
+    `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify(firestoreBody),
+    }
+  );
+
+  return uid;
+}

@@ -1,7 +1,23 @@
+"use client";
+
 import Link from "next/link";
-import { blogPosts } from "@/lib/mock-data";
+import { useCmsBlogPosts } from "@/lib/hooks";
+import { blogPosts as mockPosts } from "@/lib/mock-data";
 
 export default function BlogPage() {
+  const { data: cmsPosts, loading } = useCmsBlogPosts();
+
+  const blogPosts = cmsPosts.length > 0
+    ? cmsPosts.map((p: any) => ({
+        slug: p.slug || p.id,
+        title: p.title,
+        excerpt: p.excerpt || "",
+        author: p.author || "Staff",
+        date: p.createdAt?.toDate ? p.createdAt.toDate().toLocaleDateString() : "",
+        category: p.category || "",
+        readTime: p.readTime || "5 min read",
+      }))
+    : mockPosts;
   return (
     <main>
       <section className="bg-primary text-white py-20">
@@ -17,6 +33,12 @@ export default function BlogPage() {
 
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4">
+          {loading ? (
+            <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
+          ) : blogPosts.length === 0 ? (
+            <p className="text-center text-muted py-12">No blog posts yet.</p>
+          ) : (
+          <>
           {/* Featured Post */}
           <Link
             href={`/blog/${blogPosts[0].slug}`}
@@ -72,6 +94,8 @@ export default function BlogPage() {
               </Link>
             ))}
           </div>
+          </>
+          )}
         </div>
       </section>
     </main>

@@ -96,11 +96,16 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-muted">
-            Don&apos;t have an account?{" "}
-            <Link href="/auth/register" className="text-primary font-semibold hover:text-accent">
-              Create Account
+          <div className="mt-4 flex items-center justify-between text-sm text-muted">
+            <Link href="/auth/forgot-password" className="text-primary hover:text-accent font-medium">
+              Forgot password?
             </Link>
+            <span>
+              Don&apos;t have an account?{" "}
+              <Link href="/auth/register" className="text-primary font-semibold hover:text-accent">
+                Create Account
+              </Link>
+            </span>
           </div>
         </div>
 

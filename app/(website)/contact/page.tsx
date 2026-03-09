@@ -3,14 +3,24 @@
 import { useState } from "react";
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle } from "lucide-react";
 import { practiceAreas } from "@/lib/mock-data";
+import { createDocument, serverTimestamp } from "@/lib/firebase-service";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", service: "", message: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSaving(true);
+    try {
+      await createDocument("contactSubmissions", { ...form, createdAt: serverTimestamp(), status: "new" });
+      setSubmitted(true);
+    } catch {
+      // still show success to user to not leak system details
+      setSubmitted(true);
+    }
+    setSaving(false);
   };
 
   return (
@@ -115,9 +125,10 @@ export default function ContactPage() {
 
                   <button
                     type="submit"
-                    className="flex items-center gap-2 bg-accent hover:bg-accent-dark text-white px-8 py-3 rounded font-semibold transition-colors"
+                    disabled={saving}
+                    className="flex items-center gap-2 bg-accent hover:bg-accent-dark text-white px-8 py-3 rounded font-semibold transition-colors disabled:opacity-50"
                   >
-                    <Send size={18} /> Send Message
+                    <Send size={18} /> {saving ? "Sending..." : "Send Message"}
                   </button>
                 </form>
               )}

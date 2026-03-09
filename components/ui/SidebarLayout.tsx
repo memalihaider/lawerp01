@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import {
   Scale,
@@ -44,6 +44,41 @@ export default function SidebarLayout({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showNotifs, setShowNotifs] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifs(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Quick search navigation
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    const q = searchQuery.toLowerCase();
+    const base = links[0]?.href?.split("/")[1] || "admin";
+    const prefix = `/${base}`;
+    const routeMap: Record<string, string[]> = {
+      matter: [`${prefix}/matters`], case: [`${prefix}/matters`], client: [`${prefix}/clients`],
+      invoice: [`${prefix}/invoices`], billing: [`${prefix}/billing`], time: [`${prefix}/billing`],
+      document: [`${prefix}/documents`], file: [`${prefix}/documents`],
+      calendar: [`${prefix}/calendar`], event: [`${prefix}/calendar`],
+      message: [`${prefix}/messages`], chat: [`${prefix}/messages`],
+      report: [`${prefix}/reports`], setting: [`${prefix}/settings`],
+      staff: [`${prefix}/staff`], team: [`${prefix}/staff`],
+    };
+    for (const [keyword, routes] of Object.entries(routeMap)) {
+      if (q.includes(keyword)) { router.push(routes[0]); setSearchQuery(""); return; }
+    }
+    router.push(`${prefix}/matters`);
+    setSearchQuery("");
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -202,20 +237,49 @@ export default function SidebarLayout({
             >
               <Menu size={20} />
             </button>
-            <div className="relative hidden sm:block">
+            <form onSubmit={handleSearch} className="relative hidden sm:block">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search matters, clients..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-4 py-2 border border-border rounded-lg text-sm w-64 lg:w-80 focus:outline-none focus:border-primary"
               />
-            </div>
+            </form>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative p-2 text-muted hover:text-foreground transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full" />
-            </button>
+            <div className="relative" ref={notifRef}>
+              <button onClick={() => setShowNotifs(!showNotifs)} className="relative p-2 text-muted hover:text-foreground transition-colors">
+                <Bell size={20} />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full" />
+              </button>
+              {showNotifs && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-border shadow-lg z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border bg-muted-light/50">
+                    <h4 className="font-semibold text-sm text-foreground">Notifications</h4>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {links.slice(0, 4).map((link) => (
+                      <Link key={link.href} href={link.href} onClick={() => setShowNotifs(false)} className="block px-4 py-3 hover:bg-muted-light/50 border-b border-border/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <link.icon size={14} className="text-primary" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-foreground">New activity in {link.label}</div>
+                            <div className="text-xs text-muted">Check for updates</div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                  <Link href={links[0]?.href || "#"} onClick={() => setShowNotifs(false)} className="block px-4 py-2 text-center text-xs text-primary font-medium hover:bg-muted-light/50 border-t border-border">
+                    View Dashboard
+                  </Link>
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-2 pl-3 border-l border-border">
               <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                 <span className="text-xs font-bold text-primary">{initials}</span>

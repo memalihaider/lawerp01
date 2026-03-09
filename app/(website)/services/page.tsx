@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Building2, Gavel, Heart, Shield, Home, Lightbulb, ArrowRight } from "lucide-react";
-import { practiceAreas } from "@/lib/mock-data";
+import { useCmsServices } from "@/lib/hooks";
+import { practiceAreas as mockAreas } from "@/lib/mock-data";
 
 const iconMap: Record<string, React.ReactNode> = {
   Building2: <Building2 size={40} />,
@@ -12,6 +15,11 @@ const iconMap: Record<string, React.ReactNode> = {
 };
 
 export default function ServicesPage() {
+  const { data: cmsServices, loading } = useCmsServices();
+
+  const practiceAreas = cmsServices.length > 0
+    ? cmsServices.map((s: any) => ({ slug: s.slug || s.id, title: s.title, description: s.description, shortDescription: s.description?.slice(0, 100), icon: s.icon || "Gavel", features: s.features || [] }))
+    : mockAreas;
   return (
     <main>
       <section className="bg-primary text-white py-20">
@@ -39,7 +47,7 @@ export default function ServicesPage() {
                 <h2 className="text-2xl lg:text-3xl font-bold text-primary mb-4">{area.title}</h2>
                 <p className="text-muted leading-relaxed mb-6">{area.description}</p>
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                  {area.features.map((f) => (
+                  {area.features.map((f: string) => (
                     <div key={f} className="flex items-center gap-2 text-sm">
                       <ArrowRight size={14} className="text-accent flex-shrink-0" />
                       <span>{f}</span>

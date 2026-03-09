@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createDocument, serverTimestamp } from "@/lib/firebase-service";
+import { createUserWithAuth } from "@/lib/firebase-service";
 import { useToast } from "@/components/ui/Toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 const ROLES = ["attorney", "partner", "paralegal", "staff", "admin"];
@@ -13,8 +13,9 @@ export default function NewStaffPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({
-    firstName: "", lastName: "", email: "", phone: "", role: "attorney",
+    firstName: "", lastName: "", email: "", password: "", phone: "", role: "attorney",
     title: "", barNumber: "", practiceArea: "", bio: "", status: "active",
   });
 
@@ -24,17 +25,32 @@ export default function NewStaffPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.firstName || !form.lastName || !form.email) {
-      toast("error", "Name and email are required");
+    if (!form.firstName || !form.lastName || !form.email || !form.password) {
+      toast("error", "Name, email, and password are required");
+      return;
+    }
+    if (form.password.length < 6) {
+      toast("error", "Password must be at least 6 characters");
       return;
     }
     setSaving(true);
     try {
-      await createDocument("users", { ...form, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-      toast("success", "Staff member added");
+      const displayName = `${form.firstName} ${form.lastName}`;
+      await createUserWithAuth(form.email, form.password, {
+        displayName,
+        role: form.role,
+        phone: form.phone,
+        jobTitle: form.title,
+        barNumber: form.barNumber,
+        practiceArea: form.practiceArea,
+        bio: form.bio,
+        status: form.status,
+      });
+      toast("success", `Staff member added — they can log in with ${form.email}`);
       router.push("/admin/staff");
-    } catch { toast("error", "Failed to add staff member"); }
-    finally { setSaving(false); }
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to add staff member");
+    } finally { setSaving(false); }
   }
 
   return (
@@ -57,6 +73,17 @@ export default function NewStaffPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium text-foreground mb-1">Email *</label>
             <input type="email" name="email" value={form.email} onChange={handleChange} required className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" /></div>
+          <div><label className="block text-sm font-medium text-foreground mb-1">Password *</label>
+            <div className="relative">
+              <input type={showPass ? "text" : "password"} name="password" value={form.password} onChange={handleChange} required minLength={6} placeholder="Min 6 characters"
+                className="w-full px-3 py-2 pr-10 rounded-lg border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
+              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
+                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div><label className="block text-sm font-medium text-foreground mb-1">Phone</label>
             <input name="phone" value={form.phone} onChange={handleChange} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" /></div>
         </div>

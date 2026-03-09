@@ -109,7 +109,7 @@ export function useDocuments(filters?: { matterId?: string; category?: string })
 }
 
 export function useClients() {
-  return useRealtimeCollection("clients", [orderBy("name", "asc")]);
+  return useRealtimeCollection("users", [where("role", "==", "client"), orderBy("displayName", "asc")]);
 }
 
 export function useMessages(userId: string | null = null) {
@@ -132,7 +132,7 @@ export function useCalendarEvents(filters?: { attorneyId?: string }) {
   const constraints: QueryConstraint[] = [orderBy("date", "asc")];
   if (filters?.attorneyId) constraints.unshift(where("attorneyId", "==", filters.attorneyId));
 
-  return useRealtimeCollection("events", constraints);
+  return useRealtimeCollection("calendarEvents", constraints);
 }
 
 export function useUsers(role?: string) {
@@ -144,6 +144,20 @@ export function useUsers(role?: string) {
 
 export function useSiteSettings() {
   return useRealtimeDocument("settings", "site");
+}
+
+// CMS hooks for public website
+export function useCmsAttorneys() {
+  return useRealtimeCollection("cmsAttorneys", [where("published", "==", true), orderBy("order", "asc")]);
+}
+export function useCmsBlogPosts() {
+  return useRealtimeCollection("cmsBlogPosts", [where("published", "==", true), orderBy("createdAt", "desc")]);
+}
+export function useCmsServices() {
+  return useRealtimeCollection("cmsServices", [where("published", "==", true), orderBy("order", "asc")]);
+}
+export function useCmsTestimonials() {
+  return useRealtimeCollection("cmsTestimonials", [where("published", "==", true), orderBy("order", "asc")]);
 }
 
 // export query helpers for direct usage

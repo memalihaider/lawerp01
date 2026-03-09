@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useCalendarEvents } from "@/lib/hooks";
-import { createDocument, deleteDocument, serverTimestamp } from "@/lib/firebase-service";
+import { createDocument, updateDocument, deleteDocument, serverTimestamp } from "@/lib/firebase-service";
 import { useToast } from "@/components/ui/Toast";
 import { Modal, ConfirmModal } from "@/components/ui/Modal";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
@@ -14,6 +14,7 @@ export default function StaffCalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const { data: events, loading } = useCalendarEvents();
   const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", date: "", startTime: "09:00", endTime: "10:00", type: "meeting", location: "", description: "" });
 
@@ -37,9 +38,15 @@ export default function StaffCalendarPage() {
   async function handleSave() {
     if (!form.title || !form.date) { toast("error", "Title and date required"); return; }
     try {
-      await createDocument("calendarEvents", { ...form, createdBy: profile?.uid, createdAt: serverTimestamp() });
-      toast("success", "Event created");
+      if (editId) {
+        await updateDocument("calendarEvents", editId, { ...form });
+        toast("success", "Event updated");
+      } else {
+        await createDocument("calendarEvents", { ...form, createdBy: profile?.uid, createdAt: serverTimestamp() });
+        toast("success", "Event created");
+      }
       setShowModal(false);
+      setEditId(null);
       setForm({ title: "", date: "", startTime: "09:00", endTime: "10:00", type: "meeting", location: "", description: "" });
     } catch { toast("error", "Failed to create event"); }
   }
@@ -84,7 +91,7 @@ export default function StaffCalendarPage() {
                 <div key={day} className={`min-h-[70px] p-1 border border-border/30 rounded ${isToday ? "bg-primary/5 border-primary/30" : ""}`}>
                   <div className={`text-xs font-medium mb-0.5 ${isToday ? "text-primary font-bold" : "text-foreground"}`}>{day}</div>
                   {dayEvents.slice(0, 2).map((e: any) => (
-                    <div key={e.id} onClick={() => setDeleteId(e.id)} className={`text-[10px] text-white px-1 py-0.5 rounded mb-0.5 truncate cursor-pointer ${typeColors[e.type] || "bg-gray-500"}`}>{e.title}</div>
+                    <div key={e.id} onClick={() => { setEditId(e.id); setForm({ title: e.title, date: e.date, startTime: e.startTime || "09:00", endTime: e.endTime || "10:00", type: e.type || "meeting", location: e.location || "", description: e.description || "" }); setShowModal(true); }} className={`text-[10px] text-white px-1 py-0.5 rounded mb-0.5 truncate cursor-pointer ${typeColors[e.type] || "bg-gray-500"}`}>{e.title}</div>
                   ))}
                   {dayEvents.length > 2 && <div className="text-[10px] text-muted">+{dayEvents.length - 2}</div>}
                 </div>
@@ -111,7 +118,7 @@ export default function StaffCalendarPage() {
         </div>
       </div>
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="New Event">
+      <Modal isOpen={showModal} onClose={() => { setShowModal(false); setEditId(null); setForm({ title: "", date: "", startTime: "09:00", endTime: "10:00", type: "meeting", location: "", description: "" }); }} title={editId ? "Edit Event" : "New Event"}>
         <div className="space-y-4">
           <div><label className="block text-sm font-medium mb-1">Title</label><input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-border text-sm outline-none" /></div>
           <div className="grid grid-cols-2 gap-4">
@@ -124,8 +131,9 @@ export default function StaffCalendarPage() {
           </div>
           <div><label className="block text-sm font-medium mb-1">Location</label><input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-border text-sm outline-none" /></div>
           <div className="flex gap-2 pt-2">
-            <button onClick={handleSave} className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-light">Create</button>
-            <button onClick={() => setShowModal(false)} className="px-4 py-2 border border-border rounded-lg text-sm">Cancel</button>
+            <button onClick={handleSave} className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-light">{editId ? "Update" : "Create"}</button>
+            {editId && <button onClick={() => { setShowModal(false); setDeleteId(editId); setEditId(null); }} className="px-4 py-2 bg-danger/10 text-danger rounded-lg text-sm font-medium hover:bg-danger/20">Delete</button>}
+            <button onClick={() => { setShowModal(false); setEditId(null); setForm({ title: "", date: "", startTime: "09:00", endTime: "10:00", type: "meeting", location: "", description: "" }); }} className="px-4 py-2 border border-border rounded-lg text-sm">Cancel</button>
           </div>
         </div>
       </Modal>

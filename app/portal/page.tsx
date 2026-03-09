@@ -11,7 +11,7 @@ export default function PortalDashboard() {
   const userId = profile?.uid || "";
 
   const { data: matters, loading } = useRealtimeCollection("matters", userId ? [where("clientId", "==", userId)] : undefined);
-  const { data: documents } = useRealtimeCollection("documents");
+  const { data: documents } = useRealtimeCollection("documents", userId ? [where("clientId", "==", userId)] : undefined);
   const { data: invoices } = useRealtimeCollection("invoices", userId ? [where("clientId", "==", userId)] : undefined);
   const { data: allMessages } = useRealtimeCollection("messages", userId ? [where("receiverId", "==", userId)] : undefined);
   const { data: tasks } = useRealtimeCollection("tasks", userId ? [where("assignedTo", "==", userId)] : undefined);

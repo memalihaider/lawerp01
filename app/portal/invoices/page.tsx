@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRealtimeCollection } from "@/lib/hooks";
-import { where } from "@/lib/firebase-service";
-import { Modal } from "@/components/ui/Modal";
-import { CreditCard, Eye, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { where, updateDocument, createDocument, serverTimestamp } from "@/lib/firebase-service";
+import { Modal, ConfirmModal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
+import { CreditCard, Eye, CheckCircle, Clock, AlertCircle, DollarSign } from "lucide-react";
 
 const statusConfig: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   paid: { icon: CheckCircle, color: "bg-green-100 text-green-700", label: "Paid" },
@@ -21,6 +22,32 @@ export default function PortalInvoicesPage() {
   const { data: invoices, loading } = useRealtimeCollection("invoices", userId ? [where("clientId", "==", userId)] : undefined);
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewInvoice, setViewInvoice] = useState<any>(null);
+  const [payInvoice, setPayInvoice] = useState<any>(null);
+  const [paying, setPaying] = useState(false);
+  const { toast } = useToast();
+
+  async function handlePayment() {
+    if (!payInvoice) return;
+    setPaying(true);
+    try {
+      await updateDocument("invoices", payInvoice.id, { status: "paid", paidDate: new Date().toISOString().split("T")[0] });
+      await createDocument("payments", {
+        invoiceId: payInvoice.id,
+        invoiceNumber: payInvoice.invoiceNumber || payInvoice.id,
+        clientId: userId,
+        clientName: profile?.displayName || profile?.email,
+        amount: payInvoice.total || payInvoice.amount || 0,
+        method: "online",
+        createdAt: serverTimestamp(),
+      });
+      toast("success", "Payment recorded successfully");
+      setPayInvoice(null);
+      setViewInvoice(null);
+    } catch {
+      toast("error", "Payment failed — please try again");
+    }
+    setPaying(false);
+  }
 
   const filtered = invoices.filter((i: any) => statusFilter === "all" || i.status === statusFilter);
   const totalBilled = invoices.reduce((s: number, i: any) => s + (i.total || i.amount || 0), 0);
@@ -89,9 +116,18 @@ export default function PortalInvoicesPage() {
               </div>
             )}
             <div className="flex justify-between font-bold text-sm border-t border-border pt-3"><span>Total</span><span>${(viewInvoice.total || viewInvoice.amount || 0).toLocaleString()}</span></div>
+            {viewInvoice.status !== "paid" && (
+              <button onClick={() => setPayInvoice(viewInvoice)} className="w-full mt-4 flex items-center justify-center gap-2 bg-success hover:bg-success/90 text-white py-3 rounded-lg font-semibold transition-colors">
+                <DollarSign size={18} /> Pay Now — ${(viewInvoice.total || viewInvoice.amount || 0).toLocaleString()}
+              </button>
+            )}
           </div>
         )}
       </Modal>
+
+      <ConfirmModal isOpen={!!payInvoice} onClose={() => setPayInvoice(null)} onConfirm={handlePayment}
+        title="Confirm Payment" message={`Confirm payment of $${(payInvoice?.total || payInvoice?.amount || 0).toLocaleString()} for invoice ${payInvoice?.invoiceNumber || payInvoice?.id || ""}?`}
+        confirmLabel={paying ? "Processing..." : "Confirm Payment"} variant="primary" loading={paying} />
     </div>
   );
 }

@@ -7,10 +7,12 @@ import { createDocument, uploadFile, serverTimestamp } from "@/lib/firebase-serv
 import { useToast } from "@/components/ui/Toast";
 import { Search, FileText, File, Image, Upload, ExternalLink } from "lucide-react";
 
+import { where, orderBy } from "firebase/firestore";
+
 export default function PortalDocumentsPage() {
   const { profile } = useAuth();
   const { toast } = useToast();
-  const { data: documents, loading } = useRealtimeCollection("documents");
+  const { data: documents, loading } = useRealtimeCollection("documents", profile?.uid ? [where("clientId", "==", profile.uid), orderBy("createdAt", "desc")] : []);
   const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -35,6 +37,7 @@ export default function PortalDocumentsPage() {
       await createDocument("documents", {
         name: file.name, url, size: file.size, type: file.type,
         uploadedBy: profile?.uid, uploadedByName: profile?.displayName || profile?.email,
+        clientId: profile?.uid,
         createdAt: serverTimestamp(),
       });
       toast("success", "File uploaded");

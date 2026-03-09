@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Plus, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { useCalendarEvents } from "@/lib/hooks";
-import { createDocument, deleteDocument, serverTimestamp } from "@/lib/firebase-service";
+import { createDocument, updateDocument, deleteDocument, serverTimestamp } from "@/lib/firebase-service";
 import { Modal, ConfirmModal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 
@@ -24,6 +24,7 @@ export default function CalendarPage() {
   const [showNew, setShowNew] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", date: "", startTime: "09:00", endTime: "10:00", type: "meeting", description: "", location: "" });
 
@@ -49,7 +50,14 @@ export default function CalendarPage() {
 
   function openNew(day?: number) {
     const d = day ? `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}` : "";
+    setEditId(null);
     setForm({ title: "", date: d, startTime: "09:00", endTime: "10:00", type: "meeting", description: "", location: "" });
+    setShowNew(true);
+  }
+
+  function openEdit(event: Record<string, unknown>) {
+    setEditId(event.id as string);
+    setForm({ title: event.title as string || "", date: event.date as string || "", startTime: event.startTime as string || "09:00", endTime: event.endTime as string || "10:00", type: event.type as string || "meeting", description: event.description as string || "", location: event.location as string || "" });
     setShowNew(true);
   }
 
@@ -57,10 +65,16 @@ export default function CalendarPage() {
     if (!form.title || !form.date) { toast("error", "Title and date required"); return; }
     setSaving(true);
     try {
-      await createDocument("calendarEvents", { ...form, createdAt: serverTimestamp() });
-      toast("success", "Event created");
+      if (editId) {
+        await updateDocument("calendarEvents", editId, { ...form });
+        toast("success", "Event updated");
+      } else {
+        await createDocument("calendarEvents", { ...form, createdAt: serverTimestamp() });
+        toast("success", "Event created");
+      }
       setShowNew(false);
-    } catch { toast("error", "Failed to create event"); }
+      setEditId(null);
+    } catch { toast("error", "Failed to save event"); }
     finally { setSaving(false); }
   }
 
@@ -99,7 +113,7 @@ export default function CalendarPage() {
                   <div className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday(day) ? "bg-primary text-white" : "text-foreground"}`}>{day}</div>
                   <div className="space-y-0.5">
                     {getEventsForDay(day).slice(0, 2).map((e: Record<string, unknown>) => (
-                      <div key={e.id as string} className={`text-[10px] px-1 py-0.5 rounded border truncate ${EVENT_COLORS[e.type as string] || EVENT_COLORS.other}`} onClick={(ev) => { ev.stopPropagation(); setSelectedDate(`${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`); }}>
+                      <div key={e.id as string} className={`text-[10px] px-1 py-0.5 rounded border truncate cursor-pointer ${EVENT_COLORS[e.type as string] || EVENT_COLORS.other}`} onClick={(ev) => { ev.stopPropagation(); openEdit(e); }}>
                         {e.title as string}
                       </div>
                     ))}
@@ -125,7 +139,10 @@ export default function CalendarPage() {
                   <div className="text-xs text-muted">{e.date as string} · {e.startTime as string} - {e.endTime as string}</div>
                 </div>
               </div>
-              <button onClick={() => setDeleteId(e.id as string)} className="text-xs text-muted hover:text-danger transition-colors">Delete</button>
+              <div className="flex gap-2">
+                <button onClick={() => openEdit(e)} className="text-xs text-primary hover:underline transition-colors">Edit</button>
+                <button onClick={() => setDeleteId(e.id as string)} className="text-xs text-muted hover:text-danger transition-colors">Delete</button>
+              </div>
             </div>
           ))}
           {events.length === 0 && <p className="text-sm text-muted text-center py-4">No events scheduled</p>}
@@ -133,7 +150,7 @@ export default function CalendarPage() {
       </div>
 
       {/* New Event Modal */}
-      <Modal isOpen={showNew} onClose={() => setShowNew(false)} title="New Event" size="md">
+      <Modal isOpen={showNew} onClose={() => { setShowNew(false); setEditId(null); }} title={editId ? "Edit Event" : "New Event"} size="md">
         <div className="space-y-4">
           <div><label className="block text-sm font-medium text-foreground mb-1">Title *</label>
             <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 rounded-lg border border-border text-sm outline-none" /></div>
@@ -157,8 +174,9 @@ export default function CalendarPage() {
             <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} className="w-full px-3 py-2 rounded-lg border border-border text-sm outline-none resize-none" /></div>
         </div>
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={() => setShowNew(false)} className="px-4 py-2 text-sm rounded-lg border border-border text-muted hover:bg-muted-light transition-colors">Cancel</button>
-          <button onClick={handleCreate} disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-primary text-white hover:bg-primary-light transition-colors disabled:opacity-50">{saving ? "Saving..." : "Create Event"}</button>
+          {editId && <button onClick={() => { setShowNew(false); setDeleteId(editId); setEditId(null); }} className="px-4 py-2 text-sm rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors">Delete</button>}
+          <button onClick={() => { setShowNew(false); setEditId(null); }} className="px-4 py-2 text-sm rounded-lg border border-border text-muted hover:bg-muted-light transition-colors">Cancel</button>
+          <button onClick={handleCreate} disabled={saving} className="px-4 py-2 text-sm rounded-lg bg-primary text-white hover:bg-primary-light transition-colors disabled:opacity-50">{saving ? "Saving..." : editId ? "Update" : "Create Event"}</button>
         </div>
       </Modal>
 

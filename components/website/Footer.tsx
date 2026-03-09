@@ -1,8 +1,25 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { Scale, Phone, Mail, MapPin } from "lucide-react";
 import { practiceAreas } from "@/lib/mock-data";
+import { createDocument, serverTimestamp } from "@/lib/firebase-service";
 
 export default function WebsiteFooter() {
+  const [email, setEmail] = useState("");
+  const [subStatus, setSubStatus] = useState<"idle" | "saving" | "done">("idle");
+
+  async function handleSubscribe(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSubStatus("saving");
+    try {
+      await createDocument("newsletterSubscribers", { email: email.trim(), createdAt: serverTimestamp() });
+    } catch { /* silently handle */ }
+    setSubStatus("done");
+    setEmail("");
+  }
   return (
     <footer className="bg-primary-dark text-white">
       <div className="max-w-7xl mx-auto px-4 py-16">
@@ -58,14 +75,23 @@ export default function WebsiteFooter() {
               Subscribe to our newsletter for legal insights and firm updates.
             </p>
             <div className="flex gap-2">
+              {subStatus === "done" ? (
+                <p className="text-accent text-sm font-medium">Thanks for subscribing!</p>
+              ) : (
+              <form onSubmit={handleSubscribe} className="flex gap-2 w-full">
               <input
                 type="email"
                 placeholder="Email Address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
                 className="flex-1 px-3 py-2 rounded bg-white/10 border border-white/20 text-sm placeholder:text-white/40 focus:outline-none focus:border-accent"
               />
-              <button className="bg-accent hover:bg-accent-dark px-4 py-2 rounded text-sm font-semibold transition-colors">
-                Join
+              <button type="submit" disabled={subStatus === "saving"} className="bg-accent hover:bg-accent-dark px-4 py-2 rounded text-sm font-semibold transition-colors disabled:opacity-50">
+                {subStatus === "saving" ? "..." : "Join"}
               </button>
+              </form>
+              )}
             </div>
           </div>
         </div>

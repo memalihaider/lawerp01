@@ -2,17 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createDocument, serverTimestamp } from "@/lib/firebase-service";
+import { createUserWithAuth } from "@/lib/firebase-service";
 import { useToast } from "@/components/ui/Toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 export default function NewClientPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({
-    firstName: "", lastName: "", email: "", phone: "", company: "",
+    firstName: "", lastName: "", email: "", password: "", phone: "", company: "",
     address: "", city: "", state: "", zip: "", notes: "", role: "client", status: "active",
   });
 
@@ -22,17 +23,33 @@ export default function NewClientPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.firstName || !form.lastName || !form.email) {
-      toast("error", "Name and email are required");
+    if (!form.firstName || !form.lastName || !form.email || !form.password) {
+      toast("error", "Name, email, and password are required");
+      return;
+    }
+    if (form.password.length < 6) {
+      toast("error", "Password must be at least 6 characters");
       return;
     }
     setSaving(true);
     try {
-      await createDocument("users", { ...form, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-      toast("success", "Client added successfully");
+      const displayName = `${form.firstName} ${form.lastName}`;
+      await createUserWithAuth(form.email, form.password, {
+        displayName,
+        role: "client",
+        phone: form.phone,
+        company: form.company,
+        address: form.address,
+        city: form.city,
+        state: form.state,
+        zip: form.zip,
+        notes: form.notes,
+        status: "active",
+      });
+      toast("success", `Client added — they can log in with ${form.email}`);
       router.push("/admin/clients");
-    } catch {
-      toast("error", "Failed to add client");
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to add client");
     } finally {
       setSaving(false);
     }
@@ -64,6 +81,17 @@ export default function NewClientPage() {
             <label className="block text-sm font-medium text-foreground mb-1">Email *</label>
             <input type="email" name="email" value={form.email} onChange={handleChange} required className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Password *</label>
+            <div className="relative">
+              <input type={showPass ? "text" : "password"} name="password" value={form.password} onChange={handleChange} required minLength={6} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none pr-10" />
+              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-foreground">
+                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Phone</label>
             <input name="phone" value={form.phone} onChange={handleChange} className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none" />

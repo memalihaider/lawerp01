@@ -38,12 +38,24 @@ export default function ReportsPage() {
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [invoices]);
 
-  // Monthly revenue (mock timeline)
-  const monthlyRevenue = [
-    { month: "Sep", revenue: 245000 }, { month: "Oct", revenue: 285000 }, { month: "Nov", revenue: 312000 },
-    { month: "Dec", revenue: 298000 }, { month: "Jan", revenue: 342000 }, { month: "Feb", revenue: 378000 },
-    { month: "Mar", revenue: stats.totalRevenue || 425000 },
-  ];
+  // Monthly revenue from real paid invoices
+  const monthlyRevenue = useMemo(() => {
+    const monthMap: Record<string, number> = {};
+    invoices.filter((i: Record<string, unknown>) => i.status === "paid").forEach((i: Record<string, unknown>) => {
+      let d: Date | null = null;
+      if (i.paidDate && typeof (i.paidDate as { toDate?: () => Date }).toDate === "function") d = (i.paidDate as { toDate: () => Date }).toDate();
+      else if (i.createdAt && typeof (i.createdAt as { toDate?: () => Date }).toDate === "function") d = (i.createdAt as { toDate: () => Date }).toDate();
+      else if (i.paidDate) d = new Date(i.paidDate as string);
+      if (!d || isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      monthMap[key] = (monthMap[key] || 0) + Number(i.total || 0);
+    });
+    return Object.entries(monthMap).sort(([a], [b]) => a.localeCompare(b)).slice(-12).map(([key, revenue]) => {
+      const [y, m] = key.split("-");
+      const label = new Date(Number(y), Number(m) - 1).toLocaleString("default", { month: "short", year: "2-digit" });
+      return { month: label, revenue };
+    });
+  }, [invoices]);
 
   return (
     <div className="space-y-6">
@@ -69,6 +81,7 @@ export default function ReportsPage() {
         {/* Revenue Trend */}
         <div className="bg-white rounded-xl border border-border p-5">
           <h3 className="font-semibold text-foreground mb-4">Revenue Trend</h3>
+          {monthlyRevenue.length > 0 ? (
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={monthlyRevenue}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -78,6 +91,9 @@ export default function ReportsPage() {
               <Line type="monotone" dataKey="revenue" stroke="#1e3a5f" strokeWidth={2} dot={{ fill: "#1e3a5f" }} />
             </LineChart>
           </ResponsiveContainer>
+          ) : (
+            <p className="text-sm text-muted text-center py-8">No paid invoice data available</p>
+          )}
         </div>
 
         {/* Practice Areas */}
